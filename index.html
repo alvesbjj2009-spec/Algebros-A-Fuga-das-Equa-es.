@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Algebros — A Fuga das Equações</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0a1a;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:'Courier New',monospace;color:#fff;overflow:hidden;}
+#gw{position:relative;width:800px;max-width:100vw;}
+canvas{display:block;border:2px solid #4488ff;border-radius:8px;width:100%;}
+#ui{display:flex;justify-content:space-between;align-items:center;padding:6px 4px;}
+#lives{font-size:18px;letter-spacing:3px;}
+#scoreD{font-size:13px;color:#aad4ff;}
+#phaseD{font-size:13px;color:#ffdd88;}
+#shieldD{font-size:13px;color:#aaffaa;}
+#dpad{position:absolute;bottom:12px;left:0;width:100%;display:flex;justify-content:space-between;align-items:flex-end;padding:0 12px;pointer-events:none;z-index:5;}
+.dpad-left{display:flex;gap:6px;pointer-events:all;}
+.dpad-right{pointer-events:all;}
+.dpad-btn{width:56px;height:56px;background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,255,0.3);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation;}
+.dpad-btn:active{background:rgba(255,255,255,0.3);}
+
+/* Modal */
+#modal{display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,20,.9);border-radius:8px;flex-direction:column;align-items:center;justify-content:center;z-index:10;padding:1.5rem;text-align:center;}
+#modal.show{display:flex;}
+#modal h2{font-size:20px;color:#ffdd88;margin-bottom:.4rem;}
+.eq{font-size:26px;color:#88ddff;margin:.6rem 0;font-weight:bold;letter-spacing:2px;}
+#m-hint{font-size:13px;color:#aac8ff;margin-bottom:1rem;line-height:1.6;}
+.og{display:grid;grid-template-columns:1fr 1fr;gap:9px;width:100%;max-width:380px;}
+.ob{padding:.7rem;background:#1a2a4a;border:1px solid #4488ff;border-radius:8px;color:#fff;font-size:15px;cursor:pointer;font-family:'Courier New',monospace;transition:background .15s;}
+.ob:hover:not(:disabled){background:#2a3a6a;}
+.ob.correct{background:#1a4a1a;border-color:#44cc44;color:#88ff88;}
+.ob.wrong{background:#4a1a1a;border-color:#cc4444;color:#ff8888;}
+.ob:disabled{cursor:default;}
+#m-fb{margin-top:.9rem;font-size:13px;line-height:1.7;min-height:36px;}
+.bcont{margin-top:.9rem;padding:.6rem 2rem;background:#4488ff;border:none;border-radius:8px;color:#fff;font-size:14px;cursor:pointer;font-family:'Courier New',monospace;display:none;}
+.bcont:hover{background:#2266dd;}
+
+/* Intro */
+#sIntro{display:flex;position:absolute;top:0;left:0;width:100%;height:100%;background:#0d1b2a;border-radius:8px;flex-direction:column;align-items:center;justify-content:center;z-index:20;padding:1.5rem;text-align:center;}
+#sIntro h1{font-size:36px;color:#ffdd88;margin-bottom:.3rem;text-shadow:0 0 20px #ffaa00;}
+.sub{color:#88aaff;font-size:13px;margin-bottom:1.2rem;}
+.story{background:#1a2a4a;border:1px solid #4488ff;border-radius:8px;padding:.9rem 1.2rem;max-width:420px;font-size:13px;color:#ccdeff;line-height:1.8;margin-bottom:1.2rem;}
+.ctrls{font-size:12px;color:#aac8ff;margin-bottom:1.2rem;line-height:2;}
+.bstart{padding:.7rem 2rem;background:#ffaa00;border:none;border-radius:8px;color:#0a0a1a;font-size:17px;font-weight:bold;cursor:pointer;font-family:'Courier New',monospace;}
+.bstart:hover{background:#ffcc44;}
+
+/* End */
+#sEnd{display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,20,.96);border-radius:8px;flex-direction:column;align-items:center;justify-content:center;z-index:20;padding:1.5rem;text-align:center;}
+#sEnd.show{display:flex;}
+#sEnd h1{font-size:26px;margin-bottom:.6rem;}
+#sEnd p{color:#aac8ff;margin-bottom:1.2rem;font-size:13px;line-height:1.8;}
+#endScore{font-size:20px;color:#ffdd88;margin-bottom:1.2rem;}
+
+/* Phase banner */
+#phaseBanner{display:none;position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,20,.85);border-radius:8px;flex-direction:column;align-items:center;justify-content:center;z-index:15;}
+#phaseBanner.show{display:flex;}
+#phaseBanner h2{font-size:28px;color:#ffdd88;margin-bottom:.5rem;}
+#phaseBanner p{color:#aac8ff;font-size:14px;margin-bottom:1.2rem;}
+</style>
+</head>
+<body>
+<div id="gw">
+  <div id="ui">
+    <div id="lives">❤️❤️❤️</div>
+    <div id="phaseD">Fase 1 / 6</div>
+    <div id="shieldD"></div>
+    <div id="scoreD">⭐ 0 pts</div>
+  </div>
+  <canvas id="c" width="800" height="450"></canvas>
+  <div id="dpad">
+    <div class="dpad-left">
+      <div class="dpad-btn" id="btn-left">⬅️</div>
+      <div class="dpad-btn" id="btn-right">➡️</div>
+    </div>
+    <div class="dpad-right">
+      <div class="dpad-btn" id="btn-jump">⬆️</div>
+    </div>
+  </div>
+
+  <div id="sIntro">
+    <h1>ALGEBROS</h1>
+    <div class="sub">A Fuga das Equações</div>
+    <div class="story">📖 Algebro estava estudando quando foi transportado para dentro do livro de matemática!<br>Para escapar, ele precisa resolver <strong>equações do 1º grau</strong> nas plataformas, desviar dos inimigos e coletar moedas pelo caminho.</div>
+    <div class="ctrls">⬅️ ➡️ Mover &nbsp;|&nbsp; ⬆️ ou <strong>W</strong> Pular<br>Pouse em plataformas <span style="color:#ffdd88">✦</span> para responder questões<br>🟡 Moedas = +5 pts &nbsp;|&nbsp; 🛡️ Escudo = proteção extra<br>3 vidas &nbsp;|&nbsp; 6 fases para escapar!</div>
+    <button class="bstart" onclick="initGame()">▶ INICIAR MISSÃO</button>
+  </div>
+
+  <div id="phaseBanner">
+    <h2 id="pb-title"></h2>
+    <p id="pb-desc"></p>
+    <button class="bstart" onclick="closeBanner()">▶ Entrar na fase</button>
+  </div>
+
+  <div id="modal">
+    <h2 id="m-title">⚠️ Plataforma Ativada!</h2>
+    <div class="eq" id="m-eq"></div>
+    <p id="m-hint"></p>
+    <div class="og" id="m-opts"></div>
+    <div id="m-fb" class="feedback"></div>
+    <button class="bcont" id="btn-cont" onclick="closeModal()">Continuar →</button>
+  </div>
+
+  <div id="sEnd">
+    <h1 id="end-title"></h1>
+    <p id="end-msg"></p>
+    <div id="endScore"></div>
+    <button class="bstart" onclick="location.reload()">🔄 Jogar Novamente</button>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
+const W=800,H=450;
+
+// ── QUESTÕES ──────────────────────────────────────────────
+const allQ=[
+  {eq:"x + 5 = 9",hint:"Passe o 5 para o outro lado com sinal trocado.",opts:["x = 4","x = 14","x = 5","x = 3"],ans:0,exp:"x = 9 − 5 → x = 4. Passamos o +5 para o outro lado como −5!"},
+  {eq:"2x = 10",hint:"Divida os dois lados por 2.",opts:["x = 5","x = 8","x = 20","x = 12"],ans:0,exp:"x = 10 ÷ 2 → x = 5. Dividimos ambos os lados pelo coeficiente de x."},
+  {eq:"x − 3 = 7",hint:"Some 3 nos dois lados para isolar o x.",opts:["x = 10","x = 4","x = 21","x = 3"],ans:0,exp:"x = 7 + 3 → x = 10. Subtração vira soma ao trocar de lado!"},
+  {eq:"3x + 1 = 10",hint:"Primeiro elimine o +1, depois divida por 3.",opts:["x = 3","x = 4","x = 11","x = 2"],ans:0,exp:"3x = 10 − 1 = 9 → x = 9 ÷ 3 = 3."},
+  {eq:"x / 2 = 6",hint:"Multiplique os dois lados por 2.",opts:["x = 12","x = 3","x = 8","x = 4"],ans:0,exp:"x = 6 × 2 → x = 12. Inverso da divisão é multiplicação!"},
+  {eq:"4x − 4 = 8",hint:"Some 4 nos dois lados, depois divida por 4.",opts:["x = 3","x = 2","x = 4","x = 1"],ans:0,exp:"4x = 12 → x = 3."},
+  {eq:"2x + 3 = 11",hint:"Subtraia 3 dos dois lados, depois divida por 2.",opts:["x = 4","x = 7","x = 3","x = 5"],ans:0,exp:"2x = 8 → x = 4."},
+  {eq:"5x = 25",hint:"Divida os dois lados por 5.",opts:["x = 5","x = 20","x = 125","x = 30"],ans:0,exp:"x = 25 ÷ 5 = 5."},
+  {eq:"x + 8 = 15",hint:"Subtraia 8 dos dois lados.",opts:["x = 7","x = 23","x = 6","x = 8"],ans:0,exp:"x = 15 − 8 = 7."},
+  {eq:"3x − 6 = 9",hint:"Some 6 e depois divida por 3.",opts:["x = 5","x = 1","x = 3","x = 6"],ans:0,exp:"3x = 15 → x = 5."},
+  {eq:"x / 3 = 4",hint:"Multiplique os dois lados por 3.",opts:["x = 12","x = 7","x = 1","x = 4"],ans:0,exp:"x = 4 × 3 = 12."},
+  {eq:"6x = 42",hint:"Divida ambos os lados por 6.",opts:["x = 7","x = 6","x = 36","x = 8"],ans:0,exp:"x = 42 ÷ 6 = 7."},
+  {eq:"2x − 5 = 9",hint:"Some 5 e depois divida por 2.",opts:["x = 7","x = 2","x = 4","x = 9"],ans:0,exp:"2x = 14 → x = 7."},
+  {eq:"x + 12 = 20",hint:"Subtraia 12 dos dois lados.",opts:["x = 8","x = 32","x = 7","x = 12"],ans:0,exp:"x = 20 − 12 = 8."},
+  {eq:"4x + 2 = 18",hint:"Subtraia 2 e depois divida por 4.",opts:["x = 4","x = 5","x = 3","x = 6"],ans:0,exp:"4x = 16 → x = 4."},
+  {eq:"x − 10 = 5",hint:"Some 10 nos dois lados.",opts:["x = 15","x = 5","x = 50","x = 10"],ans:0,exp:"x = 5 + 10 = 15."},
+  {eq:"7x = 49",hint:"Divida os dois lados por 7.",opts:["x = 7","x = 42","x = 6","x = 8"],ans:0,exp:"x = 49 ÷ 7 = 7."},
+  {eq:"3x + 9 = 18",hint:"Subtraia 9 e depois divida por 3.",opts:["x = 3","x = 9","x = 6","x = 2"],ans:0,exp:"3x = 9 → x = 3."},
+  {eq:"x / 4 = 5",hint:"Multiplique os dois lados por 4.",opts:["x = 20","x = 9","x = 1","x = 15"],ans:0,exp:"x = 5 × 4 = 20."},
+  {eq:"5x − 10 = 15",hint:"Some 10 e depois divida por 5.",opts:["x = 5","x = 1","x = 3","x = 7"],ans:0,exp:"5x = 25 → x = 5."},
+];
+
+// ── FASES ─────────────────────────────────────────────────
+const phaseMeta=[
+  {name:"📚 Biblioteca Proibida",   desc:"O início da aventura. Plataformas de livros flutuantes te aguardam!",  bg:['#0d1b2a','#112233'], gcol:'#4488ff',  pcol:'#4488ff'},
+  {name:"🌿 Labirinto de Fórmulas", desc:"A floresta algébrica é densa. Cuidado com os Deltões saltadores!", bg:['#0d2a0d','#112211'], gcol:'#44aa44',  pcol:'#44cc44'},
+  {name:"🌋 Vulcão Algébrico",      desc:"O chão queima! Resolva rápido antes que as plataformas afundem.", bg:['#2a0d0d','#330d00'], gcol:'#ff4422',  pcol:'#ff6633'},
+  {name:"🏰 Castelo do Coeficiente",desc:"Muralhas de equações! Novos inimigos mais rápidos te esperam.",    bg:['#1a1020','#220d33'], gcol:'#aa44ff',  pcol:'#cc66ff'},
+  {name:"❄️ Caverna Gelada",        desc:"Deslize pelas plataformas de gelo e resolva os enigmas congelados!",bg:['#0d1a2a','#0d2233'], gcol:'#44ddff',  pcol:'#88eeff'},
+  {name:"🚀 Espaço Infinito",       desc:"O chefe final! Resolva as últimas equações para voltar ao mundo real.",bg:['#05050f','#0a0a20'],gcol:'#ffdd00',  pcol:'#ffaa00'},
+];
+
+function buildPhase(i){
+  const cols=[[3,4],[4,4],[4,5],[5,5],[5,6],[6,6]][i];
+  const qCount=cols[0], nonQ=cols[1]-cols[0];
+  const m=phaseMeta[i];
+  const plats=[];
+  const xs=[60,180,300,420,540,660,720];
+  const ys=[340,280,220,160,280,200,140];
+  let px=60;
+  for(let j=0;j<qCount;j++){
+    plats.push({x:px,y:ys[j]||300-j*60,w:110,h:14,q:true,used:false,col:m.pcol});
+    px+=140+Math.floor(Math.random()*40);
+  }
+  // exit platform
+  plats.push({x:Math.min(px,700),y:130,w:80,h:14,q:false,used:false,col:'#226622'});
+
+  const enemyCount=i+2;
+  const enemies=[];
+  for(let e=0;e<enemyCount;e++){
+    const type=i>=3&&e===0?'jumper':i>=5&&e===1?'fast':'patrol';
+    enemies.push({x:100+e*180,y:400,dir:e%2===0?1:-1,speed:1.2+i*0.2+(type==='fast'?1:0),type,jumpTimer:0,vy:0,onGround:true});
+  }
+
+  const exitX=Math.min(px+20,730);
+  return {platforms:plats,enemies,exit:{x:exitX,y:90,w:36,h:50},coins:buildCoins(plats,i),shields:i>=2?[{x:exitX-120,y:170,collected:false}]:[]};
+}
+
+function buildCoins(plats,i){
+  const coins=[];
+  plats.forEach(pl=>{
+    if(pl.q) coins.push({x:pl.x+pl.w/2-6,y:pl.y-28,collected:false});
+  });
+  // extra coins on ground level
+  for(let c=0;c<3+i;c++) coins.push({x:80+c*120,y:382,collected:false});
+  return coins;
+}
+
+// ── STATE ─────────────────────────────────────────────────
+let gameRunning=false,modalOpen=false,bannerOpen=false;
+let score=0,lives=3,shield=0,phase=1,totalPhases=6;
+let qAnswered=0,qCorrect=0,usedQ=[];
+let currentPhaseData,player,keys={};
+const GRAV=0.5,JUMP=-12,SPD=3.5;
+
+function pickQ(){
+  const avail=allQ.filter((_,i)=>!usedQ.includes(i));
+  if(!avail.length){usedQ=[];}
+  const pool=(avail.length?avail:allQ).slice(0,Math.min(5,avail.length||allQ.length));
+  const q=pool[Math.floor(Math.random()*pool.length)];
+  usedQ.push(allQ.indexOf(q));
+  return shuffleOpts(q);
+}
+function shuffleOpts(q){
+  const c=Object.assign({},q);
+  const correct=c.opts[c.ans];
+  c.opts=[...c.opts].sort(()=>Math.random()-.5);
+  c.ans=c.opts.indexOf(correct);
+  return c;
+}
+
+function initPhase(){
+  currentPhaseData=buildPhase(phase-1);
+  player={x:30,y:360,w:28,h:38,vx:0,vy:0,onGround:false,dir:1,frame:0,ft:0,blink:0,inv:false};
+}
+
+function initGame(){
+  document.getElementById('sIntro').style.display='none';
+  score=0;lives=3;shield=0;phase=1;qAnswered=0;qCorrect=0;usedQ=[];
+  initPhase();
+  updateHUD();
+  showBanner();
+}
+
+// ── BANNER ────────────────────────────────────────────────
+function showBanner(){
+  bannerOpen=true;
+  const m=phaseMeta[phase-1];
+  document.getElementById('pb-title').textContent=`Fase ${phase}: ${m.name}`;
+  document.getElementById('pb-desc').textContent=m.desc;
+  document.getElementById('phaseBanner').classList.add('show');
+}
+function closeBanner(){
+  bannerOpen=false;
+  document.getElementById('phaseBanner').classList.remove('show');
+  if(!gameRunning){gameRunning=true;requestAnimationFrame(loop);}
+}
+
+// ── INPUT ─────────────────────────────────────────────────
+document.addEventListener('keydown',e=>{keys[e.key]=true;if(['ArrowUp','ArrowDown',' '].includes(e.key))e.preventDefault();});
+document.addEventListener('keyup',e=>{keys[e.key]=false;});
+
+// Touch controls
+function addTouch(id, key){
+  const el=document.getElementById(id);
+  el.addEventListener('touchstart',e=>{e.preventDefault();keys[key]=true;},{passive:false});
+  el.addEventListener('touchend',e=>{e.preventDefault();keys[key]=false;},{passive:false});
+  el.addEventListener('mousedown',e=>{keys[key]=true;});
+  el.addEventListener('mouseup',e=>{keys[key]=false;});
+}
+addTouch('btn-left','ArrowLeft');
+addTouch('btn-right','ArrowRight');
+addTouch('btn-jump','ArrowUp');
+
+// ── LOOP ──────────────────────────────────────────────────
+let lastT=0;
+function loop(ts){
+  if(!gameRunning)return;
+  const dt=Math.min((ts-lastT)/16.67,3);lastT=ts;
+  if(!modalOpen&&!bannerOpen)update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function update(dt){
+  const p=player;
+  const pd=currentPhaseData;
+  const gY=410;
+
+  if(keys['ArrowLeft']||keys['a']||keys['A']){p.vx=-SPD;p.dir=-1;}
+  else if(keys['ArrowRight']||keys['d']||keys['D']){p.vx=SPD;p.dir=1;}
+  else p.vx=0;
+  if((keys['ArrowUp']||keys['w']||keys['W']||keys[' '])&&p.onGround){p.vy=JUMP;p.onGround=false;}
+
+  p.vy+=GRAV*dt;
+  p.x+=p.vx*dt;
+  p.y+=p.vy*dt;
+  if(p.x<0)p.x=0;
+  if(p.x+p.w>W)p.x=W-p.w;
+
+  p.onGround=false;
+  if(p.y+p.h>=gY){p.y=gY-p.h;p.vy=0;p.onGround=true;}
+
+  for(const pl of pd.platforms){
+    if(p.x+p.w>pl.x&&p.x<pl.x+pl.w&&p.y+p.h>=pl.y&&p.y+p.h<=pl.y+pl.h+Math.abs(p.vy)+2&&p.vy>=0){
+      p.y=pl.y-p.h;p.vy=0;p.onGround=true;
+      if(pl.q&&!pl.used){pl.used=true;openModal();}
+    }
+  }
+
+  if(p.y>H+60){loseLife();return;}
+
+  // Enemies
+  for(const e of pd.enemies){
+    e.x+=e.dir*e.speed*dt;
+    if(e.x<0||e.x>W-28)e.dir*=-1;
+    if(e.type==='jumper'){
+      e.jumpTimer+=dt;
+      if(e.jumpTimer>90&&e.onGround){e.vy=-10;e.onGround=false;e.jumpTimer=0;}
+      e.vy+=GRAV*dt;e.y+=e.vy*dt;
+      if(e.y>=gY-28){e.y=gY-28;e.vy=0;e.onGround=true;}
+    }
+    if(!p.inv&&rectsOverlap(p,{x:e.x,y:e.type==='jumper'?e.y:gY-28,w:26,h:28})){loseLife();return;}
+  }
+
+  // Coins
+  for(const co of pd.coins){
+    if(!co.collected&&rectsOverlap(p,{x:co.x,y:co.y,w:14,h:14})){co.collected=true;score+=5;updateHUD();}
+  }
+
+  // Shields
+  for(const sh of pd.shields||[]){
+    if(!sh.collected&&rectsOverlap(p,{x:sh.x,y:sh.y,w:20,h:20})){sh.collected=true;shield++;updateHUD();}
+  }
+
+  // Exit
+  if(rectsOverlap(p,pd.exit)){
+    if(phase<totalPhases){phase++;initPhase();updateHUD();showBanner();}
+    else showEnd(true);
+  }
+
+  p.ft++;if(p.ft>8){p.frame=(p.frame+1)%4;p.ft=0;}
+  if(p.inv){p.blink++;if(p.blink>120){p.inv=false;p.blink=0;}}
+}
+
+function rectsOverlap(a,b){return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;}
+
+function loseLife(){
+  if(player.inv)return;
+  if(shield>0){shield--;updateHUD();player.inv=true;player.blink=0;player.x=30;player.y=360;player.vx=0;player.vy=0;return;}
+  lives--;updateHUD();
+  player.inv=true;player.blink=0;player.x=30;player.y=360;player.vx=0;player.vy=0;
+  if(lives<=0)showEnd(false);
+}
+
+// ── DRAW ──────────────────────────────────────────────────
+function draw(){
+  const pd=currentPhaseData;
+  const pm=phaseMeta[phase-1];
+  const gY=410;
+
+  // BG
+  const gr=ctx.createLinearGradient(0,0,0,H);
+  gr.addColorStop(0,pm.bg[0]);gr.addColorStop(1,pm.bg[1]);
+  ctx.fillStyle=gr;ctx.fillRect(0,0,W,H);
+
+  // Grid
+  ctx.strokeStyle='rgba(100,150,255,0.06)';ctx.lineWidth=1;
+  for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+  // ── Ambientação por fase ──
+  if(phase===1){ // Biblioteca: prateleiras de livros no fundo
+    ctx.fillStyle='#1a2a3a';
+    [[0,60],[0,160],[0,260]].forEach(([bx,by])=>{
+      ctx.fillRect(bx,by,W,18);
+      for(let i=0;i<W;i+=22){
+        const cols=['#884422','#224488','#228844','#882244','#446622'];
+        ctx.fillStyle=cols[i%cols.length];
+        ctx.fillRect(bx+i+1,by+1,18,16);
+      }
+    });
+  }
+
+  if(phase===2){ // Floresta: árvores no fundo
+    [[30,200],[120,160],[250,190],[380,150],[500,180],[630,160],[730,200]].forEach(([tx,ty])=>{
+      ctx.fillStyle='#1a3a0a';
+      ctx.fillRect(tx+14,ty+60,10,80);
+      ctx.fillStyle='#2a5a12';
+      ctx.beginPath();ctx.moveTo(tx,ty+80);ctx.lineTo(tx+38,ty+80);ctx.lineTo(tx+19,ty);ctx.closePath();ctx.fill();
+      ctx.fillStyle='#1e4a0e';
+      ctx.beginPath();ctx.moveTo(tx-8,ty+110);ctx.lineTo(tx+46,ty+110);ctx.lineTo(tx+19,ty+30);ctx.closePath();ctx.fill();
+    });
+  }
+
+  if(phase===3){ // Vulcão: rochas, lava e fumaça
+    // lava lake no fundo
+    const lavGr=ctx.createLinearGradient(0,340,0,410);
+    lavGr.addColorStop(0,'#ff4400');lavGr.addColorStop(1,'#aa1100');
+    ctx.fillStyle=lavGr;ctx.fillRect(0,350,W,60);
+    // bolhas de lava
+    const t=Date.now()/600;
+    [80,200,360,500,660,740].forEach((bx,i)=>{
+      const by=350+Math.sin(t+i)*5;
+      ctx.fillStyle='#ff6600';ctx.beginPath();ctx.arc(bx,by,8+i%3*3,0,Math.PI*2);ctx.fill();
+    });
+    // rochas
+    [[50,380],[180,375],[320,382],[480,378],[620,380],[720,375]].forEach(([rx,ry])=>{
+      ctx.fillStyle='#442200';
+      ctx.beginPath();ctx.ellipse(rx,ry,22,12,0,0,Math.PI*2);ctx.fill();
+    });
+    // fumaça
+    [100,300,500,700].forEach((sx,i)=>{
+      ctx.fillStyle='rgba(80,60,60,0.18)';
+      ctx.beginPath();ctx.arc(sx,80+Math.sin(t+i)*15,40,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(sx+25,50+Math.sin(t+i+1)*10,28,0,Math.PI*2);ctx.fill();
+    });
+  }
+
+  if(phase===4){ // Castelo: torres e muralhas
+    // muralha
+    ctx.fillStyle='#2a1a3a';ctx.fillRect(0,300,W,20);
+    for(let mx=0;mx<W;mx+=32){ctx.fillStyle='#221533';ctx.fillRect(mx,285,20,18);}
+    // torres
+    [[0,100],[180,80],[380,90],[580,80],[750,100]].forEach(([tx,ty])=>{
+      ctx.fillStyle='#1e1030';ctx.fillRect(tx,ty,50,210);
+      ctx.fillStyle='#2a1a40';
+      [-5,0,5,10,15,20,25,30,35,40,45,50].filter((_,i)=>i%2===0).forEach(w=>{ctx.fillRect(tx+w,ty-15,12,18);});
+      ctx.fillStyle='rgba(180,100,255,0.15)';
+      ctx.fillRect(tx+16,ty+40,18,30); // janela
+    });
+  }
+
+  if(phase===5){ // Caverna gelada: estalactites e cristais
+    // estalactites no teto
+    [40,110,200,290,370,460,540,620,700,770].forEach((ex,i)=>{
+      const h=40+i%3*20;
+      ctx.fillStyle='#88ddff';
+      ctx.beginPath();ctx.moveTo(ex-10,0);ctx.lineTo(ex+10,0);ctx.lineTo(ex,h);ctx.closePath();ctx.fill();
+      ctx.fillStyle='rgba(200,240,255,0.3)';
+      ctx.beginPath();ctx.moveTo(ex-4,0);ctx.lineTo(ex-2,0);ctx.lineTo(ex,h-10);ctx.closePath();ctx.fill();
+    });
+    // cristais no chão
+    [60,160,280,400,520,640,740].forEach((cx,i)=>{
+      const ch=20+i%3*15;
+      ctx.fillStyle='rgba(100,220,255,0.5)';
+      ctx.beginPath();ctx.moveTo(cx,gY);ctx.lineTo(cx-8,gY-ch);ctx.lineTo(cx+8,gY-ch);ctx.closePath();ctx.fill();
+    });
+  }
+
+  if(phase===6){ // Espaço: estrelas, planetas e nebulosa
+    // nebulosa
+    const t=Date.now()/3000;
+    [[150,120,60,'rgba(80,0,150,0.08)'],[500,80,80,'rgba(0,50,180,0.07)'],[680,200,50,'rgba(150,0,80,0.08)']].forEach(([nx,ny,nr,nc])=>{
+      ctx.fillStyle=nc;ctx.beginPath();ctx.arc(nx+Math.sin(t)*5,ny,nr,0,Math.PI*2);ctx.fill();
+    });
+    // estrelas
+    ctx.fillStyle='#fff';
+    [[50,30],[200,80],[400,20],[600,60],[750,40],[100,200],[350,150],[650,180],
+     [30,100],[480,50],[720,160],[260,240],[580,220]].forEach(([sx,sy])=>{
+      ctx.fillRect(sx,sy,Math.random()>0.7?2:1,Math.random()>0.7?2:1);
+    });
+    // planetas
+    ctx.fillStyle='#aa4400';ctx.shadowColor='#ff6600';ctx.shadowBlur=15;
+    ctx.beginPath();ctx.arc(680,70,28,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#cc6600';ctx.lineWidth=5;
+    ctx.beginPath();ctx.ellipse(680,70,48,12,0.4,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle='#004488';ctx.shadowColor='#0066ff';
+    ctx.beginPath();ctx.arc(120,60,18,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+  }
+
+  // Ground
+  ctx.fillStyle=pm.bg[1];ctx.fillRect(0,gY,W,H-gY);
+  ctx.fillStyle=pm.gcol;ctx.fillRect(0,gY,W,3);
+
+  // Platforms
+  for(const pl of pd.platforms){
+    ctx.shadowColor=pl.col;ctx.shadowBlur=pl.q&&!pl.used?8:0;
+    ctx.fillStyle=pl.used&&pl.q?'#223':pl.col;
+    ctx.fillRect(pl.x,pl.y,pl.w,pl.h);
+    ctx.fillStyle=pl.used&&pl.q?'#334':lighten(pl.col);
+    ctx.fillRect(pl.x,pl.y,pl.w,3);
+    ctx.shadowBlur=0;
+    if(pl.q&&!pl.used){
+      ctx.fillStyle='#fff';ctx.font='bold 10px Courier New';ctx.textAlign='center';
+      ctx.fillText('✦ QUESTÃO',pl.x+pl.w/2,pl.y-5);
+    }
+  }
+
+  // Coins
+  for(const co of pd.coins){
+    if(!co.collected){
+      ctx.fillStyle='#ffdd00';ctx.shadowColor='#ffaa00';ctx.shadowBlur=6;
+      ctx.beginPath();ctx.arc(co.x+7,co.y+7,7,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#aa8800';ctx.font='bold 8px Courier New';ctx.textAlign='center';
+      ctx.fillText('$',co.x+7,co.y+11);
+      ctx.shadowBlur=0;
+    }
+  }
+
+  // Shields
+  for(const sh of (pd.shields||[])){
+    if(!sh.collected){
+      ctx.fillStyle='#aaffaa';ctx.shadowColor='#44ff44';ctx.shadowBlur=8;
+      ctx.font='18px sans-serif';ctx.textAlign='center';
+      ctx.fillText('🛡️',sh.x+10,sh.y+18);
+      ctx.shadowBlur=0;
+    }
+  }
+
+  // Exit
+  const ed=pd.exit;
+  ctx.fillStyle='#114411';ctx.fillRect(ed.x,ed.y,ed.w,ed.h);
+  ctx.strokeStyle='#44cc44';ctx.lineWidth=2;ctx.strokeRect(ed.x,ed.y,ed.w,ed.h);
+  ctx.font='20px sans-serif';ctx.textAlign='center';
+  ctx.fillText('🚪',ed.x+ed.w/2,ed.y+ed.h-8);
+  ctx.fillStyle='#88ff88';ctx.font='9px Courier New';
+  ctx.fillText('SAÍDA',ed.x+ed.w/2,ed.y-4);
+
+  // Enemies
+  for(const e of pd.enemies){
+    const ey=e.type==='jumper'?e.y:(gY-28);
+    const col=e.type==='fast'?'#ff6600':e.type==='jumper'?'#aa00cc':'#cc3333';
+    ctx.fillStyle=col;ctx.shadowColor=col;ctx.shadowBlur=6;
+    ctx.beginPath();ctx.arc(e.x+13,ey+12,13,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='#fff';ctx.font='bold 13px Courier New';ctx.textAlign='center';
+    ctx.fillText('Δ',e.x+13,ey+17);
+    ctx.fillStyle='#ff0';
+    ctx.fillRect(e.x+6,ey+3,4,4);ctx.fillRect(e.x+17,ey+3,4,4);
+  }
+
+  // Player
+  const p=player;
+  if(!(p.inv&&Math.floor(p.blink/5)%2===1)){
+    // legs
+    ctx.fillStyle='#1a3a88';
+    ctx.fillRect(p.x+4,p.y+26,9,12);
+    ctx.fillRect(p.x+15,p.y+26,9,12);
+    // shoes
+    ctx.fillStyle='#111';
+    ctx.fillRect(p.x+2,p.y+36,11,4);
+    ctx.fillRect(p.x+14,p.y+36,11,4);
+    // body
+    ctx.fillStyle=shield>0?'#44aa44':'#3388ff';
+    ctx.fillRect(p.x+3,p.y+14,p.w-6,14);
+    // arm
+    ctx.fillStyle='#3388ff';
+    ctx.fillRect(p.x+(p.dir>0?p.w-2:-4),p.y+15,6,9);
+    // head
+    ctx.fillStyle='#ffcc88';ctx.fillRect(p.x+5,p.y,p.w-10,15);
+    // hair
+    ctx.fillStyle='#883300';ctx.fillRect(p.x+5,p.y-4,p.w-10,6);
+    // eye
+    ctx.fillStyle='#1a1a1a';
+    ctx.fillRect(p.dir>0?p.x+14:p.x+8,p.y+5,3,3);
+    // book
+    ctx.fillStyle='#ffdd88';
+    ctx.fillRect(p.x+(p.dir>0?-6:p.w-2),p.y+15,8,11);
+    ctx.fillStyle='#aa8800';ctx.font='7px Courier New';ctx.textAlign='center';
+    ctx.fillText('∑',p.x+(p.dir>0?-2:p.w+2),p.y+24);
+  }
+  ctx.textAlign='left';
+}
+
+function lighten(hex){return hex;} // placeholder
+
+// ── MODAL ─────────────────────────────────────────────────
+let curQ=null;
+function openModal(){
+  modalOpen=true;curQ=pickQ();
+  const q=curQ;
+  document.getElementById('m-eq').textContent=q.eq;
+  document.getElementById('m-hint').textContent='💡 '+q.hint;
+  document.getElementById('m-fb').textContent='';
+  document.getElementById('m-fb').style.color='#cceebb';
+  document.getElementById('btn-cont').style.display='none';
+  const od=document.getElementById('m-opts');od.innerHTML='';
+  q.opts.forEach((o,i)=>{
+    const b=document.createElement('button');b.className='ob';b.textContent=o;
+    b.onclick=()=>answerModal(i,b);od.appendChild(b);
+  });
+  document.getElementById('modal').classList.add('show');
+}
+
+function answerModal(idx,btn){
+  const q=curQ;qAnswered++;
+  document.querySelectorAll('.ob').forEach(b=>b.disabled=true);
+  const fb=document.getElementById('m-fb');
+  if(idx===q.ans){
+    btn.classList.add('correct');score+=20;qCorrect++;
+    fb.innerHTML='✅ <strong>Correto!</strong> '+q.exp;fb.style.color='#88ff88';
+  } else {
+    btn.classList.add('wrong');
+    document.querySelectorAll('.ob')[q.ans].classList.add('correct');
+    if(shield>0){shield--;fb.innerHTML='🛡️ <strong>Escudo usado!</strong> '+q.exp;fb.style.color='#aaffaa';}
+    else{lives--;fb.innerHTML='❌ <strong>Errado!</strong> '+q.exp;fb.style.color='#ff8888';}
+  }
+  updateHUD();
+  document.getElementById('btn-cont').style.display='inline-block';
+}
+
+function closeModal(){
+  document.getElementById('modal').classList.remove('show');
+  modalOpen=false;
+  if(lives<=0)showEnd(false);
+}
+
+// ── HUD ───────────────────────────────────────────────────
+function updateHUD(){
+  document.getElementById('lives').textContent='❤️'.repeat(Math.max(0,lives))+'🖤'.repeat(Math.max(0,3-lives));
+  document.getElementById('scoreD').textContent=`⭐ ${score} pts`;
+  document.getElementById('phaseD').textContent=`Fase ${phase} / ${totalPhases}`;
+  document.getElementById('shieldD').textContent=shield>0?`🛡️ x${shield}`:'';
+}
+
+// ── END ───────────────────────────────────────────────────
+function showEnd(win){
+  gameRunning=false;
+  const sc=document.getElementById('sEnd');sc.classList.add('show');
+  if(win){
+    document.getElementById('end-title').textContent='🏆 MISSÃO CUMPRIDA!';
+    document.getElementById('end-title').style.color='#ffdd88';
+    document.getElementById('end-msg').textContent=`Algebro escapou do livro e voltou ao mundo real!\nVocê acertou ${qCorrect} de ${qAnswered} questões e coletou ${score} pontos.`;
+  } else {
+    document.getElementById('end-title').textContent='💀 GAME OVER';
+    document.getElementById('end-title').style.color='#ff4444';
+    document.getElementById('end-msg').textContent=`Algebro ficou preso no livro...\nVocê acertou ${qCorrect} de ${qAnswered} questões. Não desista!`;
+  }
+  document.getElementById('endScore').textContent=`Pontuação final: ${score} pts`;
+}
+</script>
+</body>
+</html>
